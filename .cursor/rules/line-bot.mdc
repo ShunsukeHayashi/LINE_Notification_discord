@@ -1,0 +1,360 @@
+---
+description: 
+globs: 
+---
+
+
+<cNE Bot Configuration Rules"/>
+
+◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
+LINEボット用の設定ルールファイルを作成します。
+◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
+
+<Plan>
+LINE Botの設定、イベント処理、メッセージング、データベース連携に関する包括的なルールセットを作成します。
+</Plan>
+
+```xml
+<file path=".cursor/rules/line-bot.mdc" action="create">
+  <change>
+    <description>Create LINE Bot configuration and rules</description>
+    <content>
+===
+# LINE Bot Configuration Rules 🤖
+
+## 基本設定
+
+### チャネル設定
+```yaml
+channel:
+  name: イベント通知Bot
+  type: Messaging API
+  provider: LINE
+  features:
+    - webhook
+    - push_message
+    - quick_reply
+    - flex_message
+```
+
+### 環境変数
+```yaml
+environment:
+  required:
+    - LINE_CHANNEL_SECRET
+    - LINE_CHANNEL_ACCESS_TOKEN
+    - SUPABASE_URL
+    - SUPABASE_KEY
+  optional:
+    - LINE_BOT_API_ENDPOINT
+    - WEBHOOK_URL
+```
+
+## メッセージング規則
+
+### テンプレート定義
+```yaml
+message_templates:
+  event_notification:
+    type: flex
+    structure:
+      header:
+        type: box
+        layout: vertical
+        contents:
+          - type: text
+            text: イベント通知
+            weight: bold
+      body:
+        type: box
+        layout: vertical
+        contents:
+          - type: text
+            text: {event_title}
+          - type: text
+            text: {event_datetime}
+          - type: text
+            text: {event_location}
+      footer:
+        type: box
+        layout: vertical
+        contents:
+          - type: button
+            action:
+              type: postback
+              label: 参加する
+              data: join_{event_id}
+```
+
+### クイックリプライ設定
+```yaml
+quick_replies:
+  event_actions:
+    - label: イベント一覧
+      text: !events
+    - label: 参加中イベント
+      text: !myevents
+    - label: ヘルプ
+      text: !help
+```
+
+## イベントハンドリング
+
+### Webhookイベント
+```yaml
+webhook_events:
+  - type: message
+    handlers:
+      - MessageHandler
+  - type: postback
+    handlers:
+      - PostbackHandler
+  - type: follow
+    handlers:
+      - FollowHandler
+  - type: unfollow
+    handlers:
+      - UnfollowHandler
+```
+
+### エラーハンドリング
+```yaml
+error_handling:
+  retry:
+    max_attempts: 3
+    delay: 1000
+  notifications:
+    admin_line_id: "U1234567890abcdef"
+    error_levels:
+      - critical
+      - warning
+```
+
+## データベース連携
+
+### テーブルマッピング
+```yaml
+database_mapping:
+  line_users:
+    table: users
+    fields:
+      - line_user_id
+      - display_name
+      - status
+  user_preferences:
+    table: user_preferences
+    fields:
+      - user_id
+      - notification_enabled
+      - language
+```
+
+### クエリテンプレート
+```yaml
+query_templates:
+  get_user_events:
+    table: participants
+    join:
+      - events
+    where:
+      user_id: {user_id}
+      status: active
+```
+
+## メッセージフロー
+
+### コマンド処理
+```yaml
+commands:
+  prefix: "!"
+  handlers:
+    events:
+      - description: イベント一覧を表示
+      - permissions: []
+    myevents:
+      - description: 参加中のイベントを表示
+      - permissions: [authenticated]
+    join:
+      - description: イベントに参加
+      - permissions: [authenticated]
+    leave:
+      - description: イベントから離脱
+      - permissions: [authenticated]
+```
+
+### レスポンスフォーマット
+```yaml
+response_formats:
+  event_list:
+    type: carousel
+    max_items: 10
+    item_template:
+      title: {event_name}
+      description: {event_description}
+      action: postback
+      data: view_event_{event_id}
+```
+
+## セキュリティ設定
+
+### 認証規則
+```yaml
+authentication:
+  required: true
+  methods:
+    - line_login
+  session:
+    timeout: 3600
+    refresh: true
+```
+
+### アクセス制御
+```yaml
+access_control:
+  roles:
+    - user
+    - admin
+  permissions:
+    user:
+      - view_events
+      - join_events
+      - leave_events
+    admin:
+      - create_events
+      - modify_events
+      - delete_events
+```
+
+## テスト規則
+
+### ユニットテスト要件
+```yaml
+unit_tests:
+  coverage:
+    minimum: 80%
+  required_tests:
+    - message_handling
+    - event_processing
+    - database_operations
+```
+
+### 統合テスト要件
+```yaml
+integration_tests:
+  required_scenarios:
+    - full_event_flow
+    - user_registration
+    - notification_delivery
+```
+
+## パフォーマンス基準
+
+### レスポンス時間
+```yaml
+response_times:
+  webhook: 1000ms
+  message_processing: 500ms
+  database_query: 100ms
+```
+
+### スロットリング
+```yaml
+throttling:
+  message_rate: 30/minute
+  user_rate: 5/minute
+```
+
+## 監視設定
+
+### メトリクス
+```yaml
+metrics:
+  collect:
+    - message_count
+    - response_time
+    - error_rate
+    - user_engagement
+```
+
+### アラート
+```yaml
+alerts:
+  error_rate:
+    threshold: 5%
+    window: 5m
+  response_time:
+    threshold: 2000ms
+    window: 1m
+```
+
+## ドキュメンテーション
+
+### コードコメント
+```typescript
+/**
+ * @handler MessageHandler
+ * @event message
+ * @description メッセージイベントを処理する
+ * @param {MessageEvent} event - LINEメッセージイベント
+ * @returns {Promise<void>}
+ */
+```
+
+### API仕様
+```yaml
+api_documentation:
+  format: OpenAPI
+  version: 3.0.0
+  required_sections:
+    - endpoints
+    - schemas
+    - security
+```
+
+## バージョン管理
+
+### 更新履歴
+```yaml
+version_history:
+  1.0.0:
+    date: 2024-01-20
+    changes:
+      - 初期実装
+      - 基本機能の実装
+      - データベース連携の実装
+```
+
+### デプロイメントルール
+```yaml
+deployment:
+  strategy: rolling
+  environments:
+    - development
+    - staging
+    - production
+  checks:
+    - test_coverage
+    - security_scan
+    - performance_test
+```
+===
+    </content>
+  </change>
+</file>
+```
+
+◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢
+このLINE Botルール設定ファイルには以下が含まれています：
+
+1. チャネル設定とメッセージングルール
+2. イベント処理とエラーハンドリング
+3. データベース連携とクエリテンプレート
+4. セキュリティとアクセス制御
+5. テストとパフォーマンス基準
+6. 監視とドキュメンテーション
+
+必要に応じて以下の拡張が可能です：
+- カスタムメッセージテンプレート
+- 追加のセキュリティ設定
+- 新しいイベントハンドラー
+◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢

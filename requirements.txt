@@ -1,0 +1,23 @@
+# Discord関連
+discord.py==2.3.2
+python-dotenv==1.0.0
+
+# LINE Bot関連
+line-bot-sdk==3.5.0
+fastapi==0.109.0
+uvicorn==0.25.0
+
+# データベース関連
+supabase==2.1.0
+postgrest==0.13.0
+
+# 非同期処理
+asyncio==3.4.3
+aiohttp>=3.8.5,<3.9.0  # 互換性のあるバージョンに修正
+
+# テスト関連
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx>=0.24.0,<0.25.0  # supabaseの要件に合わせて修正

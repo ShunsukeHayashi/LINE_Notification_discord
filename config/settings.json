@@ -1,0 +1,9 @@
+{
+  "ENVIRONMENT": "development",
+  "DEBUG": true,
+  "LOG_LEVEL": 10,
+  "RETRY_ATTEMPTS": 3,
+  "RETRY_DELAY": 1,
+  "CONNECTION_TIMEOUT": 5,
+  "WEBHOOK_HANDLER_PATH": "/webhook"
+}

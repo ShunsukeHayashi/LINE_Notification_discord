@@ -1,0 +1,127 @@
+@startuml イベント通知システム
+
+actor "Discord User" as discord
+actor "LINE User" as line
+participant "LIFF App" as liff
+participant "LINE Bot" as line_bot
+participant "Rich Menu" as rich_menu
+participant "Discord Bot" as discord_bot
+participant "Reminder\nScheduler" as scheduler
+database "Supabase" as db
+
+' LIFFの初期化とユーザー情報取得
+group LIFF初期化とユーザー認証
+    line -> liff: LIFFアプリにアクセス
+    activate liff
+    liff -> liff: liff.init()
+    liff -> liff: liff.isLoggedIn()
+    
+    alt ログインしていない場合
+        liff -> line: ログイン要求
+        line -> liff: ログイン
+    end
+
+    liff -> liff: liff.getProfile()
+    liff -> liff: liff.getAccessToken()
+    
+    liff -> db: ユーザー情報を保存/更新
+    note right
+        - LINE User ID
+        - 表示名
+        - プロフィール画像URL
+        - メールアドレス（同意時）
+    end note
+    db --> liff: 保存完了
+    deactivate liff
+end
+
+' リッチメニューの初期化
+group リッチメニュー初期化
+    line_bot -> rich_menu: リッチメニューを作成
+    rich_menu -> line_bot: メニュー作成完了
+    line_bot -> rich_menu: デフォルトメニューとして設定
+end
+
+' イベント作成フロー
+group イベント作成
+    discord -> discord_bot: イベントを作成
+    activate discord_bot
+    discord_bot -> db: イベントデータを保存
+    db --> discord_bot: 保存完了
+    discord_bot -> db: トリガーを作成
+    db --> discord_bot: トリガー作成完了
+    discord_bot --> discord: イベント作成完了
+    deactivate discord_bot
+end
+
+' イベント参加フロー（リッチメニュー経由）
+group イベント参加
+    line -> rich_menu: イベント一覧ボタンをタップ
+    rich_menu -> line_bot: イベント一覧要求
+    activate line_bot
+    line_bot -> db: イベントデータを取得
+    db --> line_bot: イベントデータ
+    line_bot --> line: イベント一覧を表示\n（カルーセルテンプレート）
+    deactivate line_bot
+
+    line -> line_bot: イベント参加ボタンをタップ
+    activate line_bot
+    line_bot -> db: ユーザー情報を確認
+    db --> line_bot: ユーザー情報
+    line_bot -> db: 参加情報を登録
+    db --> line_bot: 登録完了
+    line_bot --> line: 参加完了通知\n（確認テンプレート）
+    deactivate line_bot
+end
+
+' リマインダー送信フロー
+group リマインダー送信
+    scheduler -> db: 期限切れリマインダーを確認
+    activate scheduler
+    db --> scheduler: リマインダー情報
+    
+    loop 各リマインダー
+        scheduler -> db: イベント情報を取得
+        db --> scheduler: イベント情報
+        scheduler -> db: 参加者情報を取得
+        db --> scheduler: 参加者情報
+        scheduler -> line_bot: リマインダーメッセージを送信
+        line_bot -> line: 通知を送信\n（ボタンテンプレート）
+        scheduler -> db: リマインダーを送信済みとしてマーク
+        db --> scheduler: 更新完了
+    end
+    deactivate scheduler
+end
+
+' イベント更新/キャンセルフロー
+group イベント更新/キャンセル
+    discord -> discord_bot: イベントを更新/キャンセル
+    activate discord_bot
+    discord_bot -> db: イベント状態を更新
+    db --> discord_bot: 更新完了
+    discord_bot -> db: トリガーを作成
+    db --> discord_bot: トリガー作成完了
+    discord_bot --> discord: 更新完了通知
+    deactivate discord_bot
+end
+
+' リッチメニューのその他の操作
+group その他のリッチメニュー操作
+    line -> rich_menu: マイイベント一覧ボタンをタップ
+    rich_menu -> line_bot: 参加イベント一覧要求
+    activate line_bot
+    line_bot -> db: 参加イベントを取得
+    db --> line_bot: イベントデータ
+    line_bot --> line: マイイベント一覧を表示\n（カルーセルテンプレート）
+    deactivate line_bot
+
+    line -> rich_menu: イベントキャンセルボタンをタップ
+    rich_menu -> line_bot: キャンセル要求
+    activate line_bot
+    line_bot -> db: 参加情報を削除
+    db --> line_bot: 削除完了
+    line_bot --> line: キャンセル完了通知\n（確認メッセージ）
+    deactivate line_bot
+end
+
+@enduml

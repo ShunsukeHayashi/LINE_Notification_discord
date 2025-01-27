@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  db:
+    image: supabase/postgres:15.1.0.117
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: db
+    volumes:
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  line-bot:
+    build:
+      context: .
+      dockerfile: docker/line-bot/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - SUPABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - POSTGRES_HOST=db
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - event-network
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: docker/discord-bot/Dockerfile
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
+      - SUPABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - POSTGRES_HOST=db
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - event-network
+
+  reminder-scheduler:
+    build:
+      context: .
+      dockerfile: docker/reminder-scheduler/Dockerfile
+    environment:
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - SUPABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - POSTGRES_HOST=db
+    volumes:
+      - ./:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      line-bot:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - event-network
+
+networks:
+  event-network:
+    driver: bridge

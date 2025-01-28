@@ -4,6 +4,7 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+import json
 
 # テスト用の環境変数を読み込む
 load_dotenv('.env.test')
@@ -15,8 +16,8 @@ def event_data():
         'id': 'test-event-id',
         'name': 'Test Event',
         'description': 'Test Description',
-        'start_time': '2024-02-01T10:00:00Z',
-        'end_time': '2024-02-01T12:00:00Z',
+        'start_date': '2024-02-01T10:00:00Z',
+        'end_date': '2024-02-01T12:00:00Z',
         'location': 'Test Location',
         'status': 'scheduled',
         'max_participants': 10,
@@ -77,9 +78,20 @@ def mock_supabase():
 def mock_line_bot():
     """Mock LINE Bot client"""
     mock = MagicMock()
-    mock.reply_message = asyncio.Future()
-    mock.reply_message.set_result(None)
+    # reply_messageをAsyncMockに変更
+    mock.reply_message = MagicMock()
+    mock.reply_message.return_value = asyncio.Future()
+    mock.reply_message.return_value.set_result(None)
+    # push_messageも同様に
     mock.push_message = MagicMock()
+    mock.push_message.return_value = asyncio.Future()
+    mock.push_message.return_value.set_result(None)
+    # プロファイル取得用のメソッドを追加
+    mock.get_profile = MagicMock()
+    mock.get_profile.return_value = asyncio.Future()
+    mock.get_profile.return_value.set_result(
+        MagicMock(display_name="Test User")
+    )
     return mock
 
 @pytest.fixture
@@ -99,3 +111,49 @@ def mock_scheduler():
     mock.send_reminder = asyncio.Future()
     mock.send_reminder.set_result(None)
     return mock
+
+@pytest.fixture
+def mock_openai():
+    """Mock OpenAI client"""
+    mock = MagicMock()
+    future_time = (datetime.now(timezone.utc) + timedelta(days=1)).strftime('%Y-%m-%d %H:%M')
+    
+    # ChatCompletionのレスポンスをモック
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps({
+                    "name": "新年会",
+                    "description": "新年会のイベント",
+                    "start_date": future_time,
+                    "location": "渋谷"
+                })
+            )
+        )
+    ]
+    
+    mock.ChatCompletion.create.return_value = mock_response
+    return mock
+
+@pytest.fixture
+def mock_line_message_event():
+    """Mock LINE Message Event"""
+    def _create_message_event(text="test message"):
+        return MagicMock(
+            message=MagicMock(text=text),
+            reply_token="test-reply-token",
+            source=MagicMock(user_id="test-user")
+        )
+    return _create_message_event
+
+@pytest.fixture
+def mock_line_postback_event():
+    """Mock LINE Postback Event"""
+    def _create_postback_event(data="test_data"):
+        return MagicMock(
+            postback=MagicMock(data=data),
+            reply_token="test-reply-token",
+            source=MagicMock(user_id="test-user")
+        )
+    return _create_postback_event
